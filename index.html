@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Weather & Quiz Dashboard | AccuWeather</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+    />
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: "#1e40af",
+              secondary: "#3b82f6",
+              accent: "#60a5fa",
+              dark: "#0f172a",
+              light: "#f8fafc",
+            },
+            animation: {
+              "fade-in": "fadeIn 0.5s ease-in-out",
+              "slide-up": "slideUp 0.4s ease-out",
+              "pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+            },
+            keyframes: {
+              fadeIn: {
+                "0%": { opacity: "0" },
+                "100%": { opacity: "1" },
+              },
+              slideUp: {
+                "0%": { transform: "translateY(20px)", opacity: "0" },
+                "100%": { transform: "translateY(0)", opacity: "1" },
+              },
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      body {
+        font-family: "Poppins", sans-serif;
+        background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+        min-height: 100vh;
+        color: #333;
+      }
+
+      .app-container {
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        border-radius: 20px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.95);
+      }
+
+      .nav-item {
+        transition: all 0.3s ease;
+        position: relative;
+      }
+
+      .nav-item::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        width: 0;
+        height: 3px;
+        background: #3b82f6;
+        transition: all 0.3s ease;
+        transform: translateX(-50%);
+      }
+
+      .nav-item.active::after {
+        width: 100%;
+      }
+
+      .quiz-option {
+        transition: all 0.2s ease;
+      }
+
+      .quiz-option:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+      }
+
+      .weather-card {
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      }
+
+      .progress-bar {
+        height: 8px;
+        transition: width 0.5s ease;
+      }
+
+      .temperature-display {
+        font-size: 4rem;
+        font-weight: 700;
+        text-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+
+      .weather-icon {
+        filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+      }
+
+      .forecast-card {
+        transition: all 0.3s ease;
+      }
+
+      .forecast-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+      }
+
+      .api-key-container {
+        background: rgba(255, 255, 255, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+      }
+
+      @media (max-width: 768px) {
+        .temperature-display {
+          font-size: 3rem;
+        }
+
+        .app-container {
+          border-radius: 0;
+        }
+      }
+    </style>
+  </head>
+  <body class="py-8 px-4">
+    <div class="max-w-4xl mx-auto">
+      <!-- Header -->
+      <header class="text-center mb-10 animate-slide-up">
+        <h1 class="text-4xl md:text-5xl font-bold text-white mb-3">
+          Weather & Quiz Dashboard
+        </h1>
+        <p class="text-xl text-blue-200">Powered by AccuWeather API</p>
+      </header>
+
+      <!-- API Key Notice -->
+      <div
+        class="api-key-container rounded-lg p-4 mb-6 text-white text-center animate-pulse"
+      >
+        <p>
+          <i class="fas fa-info-circle mr-2"></i>Using AccuWeather API. Enter
+          your API key below:
+        </p>
+        <div class="flex mt-3 max-w-md mx-auto">
+          <input
+            type="text"
+            id="apiKeyInput"
+            placeholder="Enter AccuWeather API key"
+            class="flex-1 px-4 py-2 rounded-l-lg bg-white/20 text-white placeholder-white/60 focus:outline-none"
+          />
+          <button
+            id="saveApiKey"
+            class="bg-primary px-4 rounded-r-lg hover:bg-secondary transition"
+          >
+            Save Key
+          </button>
+        </div>
+      </div>
+
+      <!-- Main App Container -->
+      <div class="app-container animate-fade-in">
+        <!-- Navigation -->
+        <nav class="flex border-b">
+          <div
+            class="nav-item active flex-1 text-center py-4 font-medium cursor-pointer text-primary"
+            data-tab="weather"
+          >
+            <i class="fas fa-cloud-sun mr-2"></i>Weather
+          </div>
+          <div
+            class="nav-item flex-1 text-center py-4 font-medium cursor-pointer text-gray-600"
+            data-tab="quiz"
+          >
+            <i class="fas fa-question-circle mr-2"></i>Quiz
+          </div>
+        </nav>
+
+        <!-- Weather Section -->
+        <div id="weatherSection" class="p-6">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-dark">Weather Forecast</h2>
+            <div class="text-sm text-gray-500">
+              <i class="fas fa-sync-alt mr-2"></i>Updated just now
+            </div>
+          </div>
+
+          <!-- Search Bar -->
+          <div class="flex mb-8">
+            <input
+              type="text"
+              id="cityInput"
+              placeholder="Enter city name..."
+              value="New York"
+              class="flex-1 px-4 py-3 rounded-l-lg border-2 border-gray-200 focus:outline-none focus:border-primary"
+            />
+            <button
+              id="searchWeather"
+              class="bg-primary text-white px-6 rounded-r-lg hover:bg-secondary transition"
+            >
+              <i class="fas fa-search"></i>
+            </button>
+          </div>
+
+          <!-- Current Weather -->
+          <div id="currentWeather" class="weather-card p-6 mb-8">
+            <div class="flex flex-col md:flex-row items-center justify-between">
+              <div class="text-center md:text-left mb-6 md:mb-0">
+                <h3 class="text-2xl font-bold" id="cityName">New York, US</h3>
+                <p class="text-gray-600" id="weatherDate">
+                  Monday, June 22, 2025
+                </p>
+                <p class="text-gray-500 mt-1" id="weatherDesc">Partly sunny</p>
+              </div>
+              <div class="flex items-center">
+                <img
+                  id="weatherIcon"
+                  src="https://developer.accuweather.com/sites/default/files/01-s.png"
+                  alt="Weather icon"
+                  class="weather-icon w-24 h-24"
+                />
+                <div class="temperature-display text-primary" id="temperature">
+                  24°C
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
+              <div class="text-center p-4 bg-blue-50 rounded-lg">
+                <i class="fas fa-wind text-primary text-2xl mb-2"></i>
+                <p class="font-medium">Wind</p>
+                <p id="windSpeed">12 km/h</p>
+              </div>
+              <div class="text-center p-4 bg-blue-50 rounded-lg">
+                <i class="fas fa-tint text-primary text-2xl mb-2"></i>
+                <p class="font-medium">Humidity</p>
+                <p id="humidity">65%</p>
+              </div>
+              <div class="text-center p-4 bg-blue-50 rounded-lg">
+                <i class="fas fa-sun text-primary text-2xl mb-2"></i>
+                <p class="font-medium">UV Index</p>
+                <p id="uvIndex">5 Moderate</p>
+              </div>
+              <div class="text-center p-4 bg-blue-50 rounded-lg">
+                <i class="fas fa-eye text-primary text-2xl mb-2"></i>
+                <p class="font-medium">Visibility</p>
+                <p id="visibility">16 km</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Forecast -->
+          <div>
+            <h3 class="text-xl font-bold mb-4">5-Day Forecast</h3>
+            <div
+              id="forecastContainer"
+              class="grid grid-cols-2 md:grid-cols-5 gap-4"
+            >
+              <div
+                class="forecast-card weather-card text-center p-4 rounded-lg"
+              >
+                <p class="font-medium">Tue</p>
+                <img
+                  src="https://developer.accuweather.com/sites/default/files/02-s.png"
+                  alt="Mostly sunny"
+                  class="mx-auto my-2 w-16 h-16"
+                />
+                <p class="text-lg font-semibold">26°C</p>
+                <p class="text-sm text-gray-600">Mostly sunny</p>
+              </div>
+              <div
+                class="forecast-card weather-card text-center p-4 rounded-lg"
+              >
+                <p class="font-medium">Wed</p>
+                <img
+                  src="https://developer.accuweather.com/sites/default/files/06-s.png"
+                  alt="Cloudy"
+                  class="mx-auto my-2 w-16 h-16"
+                />
+                <p class="text-lg font-semibold">22°C</p>
+                <p class="text-sm text-gray-600">Cloudy</p>
+              </div>
+              <div
+                class="forecast-card weather-card text-center p-4 rounded-lg"
+              >
+                <p class="font-medium">Thu</p>
+                <img
+                  src="https://developer.accuweather.com/sites/default/files/12-s.png"
+                  alt="Rain"
+                  class="mx-auto my-2 w-16 h-16"
+                />
+                <p class="text-lg font-semibold">19°C</p>
+                <p class="text-sm text-gray-600">Showers</p>
+              </div>
+              <div
+                class="forecast-card weather-card text-center p-4 rounded-lg"
+              >
+                <p class="font-medium">Fri</p>
+                <img
+                  src="https://developer.accuweather.com/sites/default/files/07-s.png"
+                  alt="Clouds"
+                  class="mx-auto my-2 w-16 h-16"
+                />
+                <p class="text-lg font-semibold">21°C</p>
+                <p class="text-sm text-gray-600">Mostly cloudy</p>
+              </div>
+              <div
+                class="forecast-card weather-card text-center p-4 rounded-lg"
+              >
+                <p class="font-medium">Sat</p>
+                <img
+                  src="https://developer.accuweather.com/sites/default/files/01-s.png"
+                  alt="Sunny"
+                  class="mx-auto my-2 w-16 h-16"
+                />
+                <p class="text-lg font-semibold">25°C</p>
+                <p class="text-sm text-gray-600">Sunny</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quiz Section -->
+        <div id="quizSection" class="p-6 hidden">
+          <!-- Quiz Header -->
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-dark">Web Development Quiz</h2>
+            <div class="text-primary font-semibold">
+              <span id="currentQuestion">1</span>/<span id="totalQuestions"
+                >5</span
+              >
+            </div>
+          </div>
+
+          <!-- Progress Bar -->
+          <div class="h-2 bg-gray-200 rounded-full mb-8 overflow-hidden">
+            <div
+              id="quizProgress"
+              class="progress-bar bg-accent rounded-full"
+              style="width: 20%"
+            ></div>
+          </div>
+
+          <!-- Quiz Content -->
+          <div id="quizContent">
+            <div id="questionContainer" class="mb-8">
+              <h3 class="text-xl font-semibold mb-6" id="questionText">
+                What does CSS stand for?
+              </h3>
+              <div
+                id="quizOptionsContainer"
+                class="grid grid-cols-1 md:grid-cols-2 gap-4"
+              >
+                <div
+                  class="quiz-option p-4 rounded-xl border-2 border-gray-200 cursor-pointer hover:border-accent transition"
+                >
+                  Creative Style Sheets
+                </div>
+                <div
+                  class="quiz-option p-4 rounded-xl border-2 border-gray-200 cursor-pointer hover:border-accent transition"
+                >
+                  Cascading Style Sheets
+                </div>
+                <div
+                  class="quiz-option p-4 rounded-xl border-2 border-gray-200 cursor-pointer hover:border-accent transition"
+                >
+                  Computer Style Sheets
+                </div>
+                <div
+                  class="quiz-option p-4 rounded-xl border-2 border-gray-200 cursor-pointer hover:border-accent transition"
+                >
+                  Colorful Style Sheets
+                </div>
+              </div>
+            </div>
+
+            <div id="resultsContainer" class="hidden text-center py-12">
+              <div class="text-6xl text-accent mb-4">
+                <i class="fas fa-trophy"></i>
+              </div>
+              <h3 class="text-2xl font-bold mb-2">Quiz Completed!</h3>
+              <p class="text-xl mb-6">
+                Your score:
+                <span id="quizScore" class="font-bold text-primary">0</span
+                >/<span id="quizTotal">5</span>
+              </p>
+              <button
+                id="restartQuiz"
+                class="bg-primary text-white px-6 py-3 rounded-full font-medium hover:bg-secondary transition"
+              >
+                Restart Quiz
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <footer class="text-center text-white mt-10 opacity-75">
+        <p>
+          Interactive Web Application with Quiz & Weather Features | AccuWeather
+          Integration
+        </p>
+      </footer>
+    </div>
+
+    <script>
+      // Quiz data
+      const quizData = [
+        {
+          question: "What does CSS stand for?",
+          options: [
+            "Creative Style Sheets",
+            "Cascading Style Sheets",
+            "Computer Style Sheets",
+            "Colorful Style Sheets",
+          ],
+          correct: 1,
+        },
+        {
+          question: "Which HTML tag is used for creating an unordered list?",
+          options: ["<ol>", "<ul>", "<li>", "<list>"],
+          correct: 1,
+        },
+        {
+          question: "What is the purpose of media queries in CSS?",
+          options: [
+            "To apply styles based on device characteristics",
+            "To query media files in the project",
+            "To create responsive typography",
+            "To optimize images for different devices",
+          ],
+          correct: 0,
+        },
+        {
+          question:
+            "Which JavaScript method is used to select an HTML element by its id?",
+          options: [
+            "document.querySelector()",
+            "document.getElementByTagName()",
+            "document.getElementById()",
+            "document.getElementByClass()",
+          ],
+          correct: 2,
+        },
+        {
+          question: "What does API stand for in web development?",
+          options: [
+            "Application Programming Interface",
+            "Automated Programming Interface",
+            "Advanced Programming Integration",
+            "Application Process Integration",
+          ],
+          correct: 0,
+        },
+      ];
+
+      // DOM Elements
+      const quizSection = document.getElementById("quizSection");
+      const weatherSection = document.getElementById("weatherSection");
+      const navItems = document.querySelectorAll(".nav-item");
+      const questionText = document.getElementById("questionText");
+      const quizOptionsContainer = document.getElementById(
+        "quizOptionsContainer"
+      );
+      const currentQuestion = document.getElementById("currentQuestion");
+      const totalQuestions = document.getElementById("totalQuestions");
+      const quizProgress = document.getElementById("quizProgress");
+      const resultsContainer = document.getElementById("resultsContainer");
+      const quizScore = document.getElementById("quizScore");
+      const quizTotal = document.getElementById("quizTotal");
+      const restartQuiz = document.getElementById("restartQuiz");
+      const cityInput = document.getElementById("cityInput");
+      const searchWeather = document.getElementById("searchWeather");
+      const cityName = document.getElementById("cityName");
+      const weatherDate = document.getElementById("weatherDate");
+      const weatherDesc = document.getElementById("weatherDesc");
+      const weatherIcon = document.getElementById("weatherIcon");
+      const temperature = document.getElementById("temperature");
+      const windSpeed = document.getElementById("windSpeed");
+      const humidity = document.getElementById("humidity");
+      const uvIndex = document.getElementById("uvIndex");
+      const visibility = document.getElementById("visibility");
+      const apiStatusText = document.getElementById("apiStatusText");
+      const forecastContainer = document.getElementById("forecastContainer");
+      const apiKeyInput = document.getElementById("apiKeyInput");
+      const saveApiKey = document.getElementById("saveApiKey");
+
+      // State variables
+      let currentQuestionIndex = 0;
+      let score = 0;
+      // Set your AccuWeather API key here
+      let apiKey = "FDPAocePv6GpmMJan2XFpsJ0HK2FNhSA"; // Replace with your actual API key
+      let usingLiveData = false;
+
+      // Initialize the quiz
+      function initQuiz() {
+        totalQuestions.textContent = quizData.length;
+        currentQuestion.textContent = currentQuestionIndex + 1;
+        loadQuestion();
+      }
+
+      // Load a question
+      function loadQuestion() {
+        const currentQuizData = quizData[currentQuestionIndex];
+        questionText.textContent = currentQuizData.question;
+
+        // Clear previous options
+        quizOptionsContainer.innerHTML = "";
+
+        // Add new options
+        currentQuizData.options.forEach((option, index) => {
+          const optionElement = document.createElement("div");
+          optionElement.classList.add(
+            "quiz-option",
+            "p-4",
+            "rounded-xl",
+            "border-2",
+            "border-gray-200",
+            "cursor-pointer",
+            "hover:border-accent",
+            "transition"
+          );
+          optionElement.textContent = option;
+
+          optionElement.addEventListener("click", () => {
+            selectOption(index);
+          });
+
+          quizOptionsContainer.appendChild(optionElement);
+        });
+
+        // Update progress bar
+        const progressPercentage =
+          (currentQuestionIndex / quizData.length) * 100;
+        quizProgress.style.width = `${progressPercentage}%`;
+      }
+
+      // Handle option selection
+      function selectOption(optionIndex) {
+        const currentQuizData = quizData[currentQuestionIndex];
+
+        if (optionIndex === currentQuizData.correct) {
+          score++;
+          // Visual feedback for correct answer
+          quizOptionsContainer.children[optionIndex].classList.add(
+            "bg-green-100",
+            "border-green-500"
+          );
+        } else {
+          // Visual feedback for wrong answer
+          quizOptionsContainer.children[optionIndex].classList.add(
+            "bg-red-100",
+            "border-red-500"
+          );
+          // Also show correct answer
+          quizOptionsContainer.children[currentQuizData.correct].classList.add(
+            "bg-green-100",
+            "border-green-500"
+          );
+        }
+
+        // Move to next question after delay
+        setTimeout(() => {
+          currentQuestionIndex++;
+
+          if (currentQuestionIndex < quizData.length) {
+            currentQuestion.textContent = currentQuestionIndex + 1;
+            loadQuestion();
+          } else {
+            showResults();
+          }
+        }, 1000);
+      }
+
+      // Show quiz results
+      function showResults() {
+        document.getElementById("questionContainer").classList.add("hidden");
+        resultsContainer.classList.remove("hidden");
+        quizScore.textContent = score;
+        quizTotal.textContent = quizData.length;
+
+        // Update progress bar to 100%
+        quizProgress.style.width = "100%";
+      }
+
+      // Restart quiz
+      restartQuiz.addEventListener("click", () => {
+        currentQuestionIndex = 0;
+        score = 0;
+        document.getElementById("questionContainer").classList.remove("hidden");
+        resultsContainer.classList.add("hidden");
+        initQuiz();
+      });
+
+      // Tab navigation
+      navItems.forEach((item) => {
+        item.addEventListener("click", () => {
+          const tab = item.getAttribute("data-tab");
+
+          navItems.forEach((navItem) => {
+            navItem.classList.remove("active", "text-primary");
+            navItem.classList.add("text-gray-600");
+          });
+
+          item.classList.add("active", "text-primary");
+          item.classList.remove("text-gray-600");
+
+          if (tab === "quiz") {
+            quizSection.classList.remove("hidden");
+            weatherSection.classList.add("hidden");
+          } else {
+            quizSection.classList.add("hidden");
+            weatherSection.classList.remove("hidden");
+          }
+        });
+      });
+
+      // Format date
+      function formatDate(date) {
+        const options = {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        };
+        return date.toLocaleDateString("en-US", options);
+      }
+
+      // Render forecast
+      function renderForecast(forecastData) {
+        forecastContainer.innerHTML = "";
+
+        forecastData.forEach((day) => {
+          const forecastCard = document.createElement("div");
+          forecastCard.classList.add(
+            "forecast-card",
+            "weather-card",
+            "text-center",
+            "p-4",
+            "rounded-lg"
+          );
+          forecastCard.innerHTML = `
+                    <p class="font-medium">${day.day}</p>
+                    <img src="${day.icon}" alt="${day.desc}" class="mx-auto my-2 w-16 h-16">
+                    <p class="text-lg font-semibold">${day.temp}°C</p>
+                    <p class="text-sm text-gray-600">${day.desc}</p>
+                `;
+          forecastContainer.appendChild(forecastCard);
+        });
+      }
+
+      // Get AccuWeather data
+      async function getAccuWeather(city) {
+        if (!apiKey) {
+          throw new Error("No API key provided");
+        }
+
+        // Step 1: Get location key
+        const locationResponse = await fetch(
+          `https://dataservice.accuweather.com/locations/v1/cities/search?apikey=${apiKey}&q=${city}`
+        );
+
+        if (!locationResponse.ok) {
+          throw new Error("Failed to fetch location data");
+        }
+
+        const locationData = await locationResponse.json();
+        if (!locationData || locationData.length === 0) {
+          throw new Error("City not found");
+        }
+
+        const locationKey = locationData[0].Key;
+        const locationName = `${locationData[0].LocalizedName}, ${locationData[0].Country.LocalizedName}`;
+
+        // Step 2: Get current conditions
+        const currentResponse = await fetch(
+          `https://dataservice.accuweather.com/currentconditions/v1/${locationKey}?apikey=${apiKey}`
+        );
+
+        if (!currentResponse.ok) {
+          throw new Error("Failed to fetch current conditions");
+        }
+
+        const currentData = await currentResponse.json();
+        if (!currentData || currentData.length === 0) {
+          throw new Error("Current conditions not available");
+        }
+
+        // Step 3: Get 5-day forecast
+        const forecastResponse = await fetch(
+          `https://dataservice.accuweather.com/forecasts/v1/daily/5day/${locationKey}?apikey=${apiKey}&metric=true`
+        );
+
+        if (!forecastResponse.ok) {
+          throw new Error("Failed to fetch forecast data");
+        }
+
+        const forecastData = await forecastResponse.json();
+
+        return {
+          locationName,
+          current: currentData[0],
+          forecast: forecastData,
+        };
+      }
+
+      // Get weather data
+      async function getWeather() {
+        const city = cityInput.value.trim();
+
+        if (!city) {
+          alert("Please enter a city name");
+          return;
+        }
+
+        // Show loading state
+        searchWeather.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        searchWeather.disabled = true;
+
+        try {
+          // Try to get live data
+          const weatherData = await getAccuWeather(city);
+
+          // Update current weather
+          cityName.textContent = weatherData.locationName;
+          weatherDate.textContent = formatDate(new Date());
+          weatherDesc.textContent = weatherData.current.WeatherText;
+          weatherIcon.src = `https://developer.accuweather.com/sites/default/files/${weatherData.current.WeatherIcon.toString().padStart(
+            2,
+            "0"
+          )}-s.png`;
+          temperature.textContent = `${weatherData.current.Temperature.Metric.Value}°C`;
+          windSpeed.textContent = `${weatherData.current.Wind.Speed.Metric.Value} km/h`;
+          humidity.textContent = `${weatherData.current.RelativeHumidity}%`;
+          uvIndex.textContent = `${
+            weatherData.current.UVIndex
+          } ${getUvIndexText(weatherData.current.UVIndex)}`;
+          visibility.textContent = `${weatherData.current.Visibility.Metric.Value} km`;
+
+          // Update forecast
+          const forecastDays = weatherData.forecast.DailyForecasts.map(
+            (day) => {
+              return {
+                day: new Date(day.Date).toLocaleDateString("en-US", {
+                  weekday: "short",
+                }),
+                icon: `https://developer.accuweather.com/sites/default/files/${day.Day.Icon.toString().padStart(
+                  2,
+                  "0"
+                )}-s.png`,
+                temp: day.Temperature.Maximum.Value,
+                desc: day.Day.IconPhrase,
+              };
+            }
+          );
+
+          renderForecast(forecastDays);
+
+          // Update API status
+          usingLiveData = true;
+          apiStatusText.textContent = "Using live AccuWeather data";
+          apiStatusText.className = "font-medium text-green-600";
+        } catch (error) {
+          console.error("Error fetching weather data:", error);
+          apiStatusText.textContent = "Error: " + error.message;
+          apiStatusText.className = "font-medium text-red-600";
+
+          // Fallback to demo data
+          useDemoWeatherData(city);
+        } finally {
+          // Reset button
+          searchWeather.innerHTML = '<i class="fas fa-search"></i>';
+          searchWeather.disabled = false;
+        }
+      }
+
+      // Get UV index text
+      function getUvIndexText(index) {
+        if (index <= 2) return "Low";
+        if (index <= 5) return "Moderate";
+        if (index <= 7) return "High";
+        if (index <= 10) return "Very High";
+        return "Extreme";
+      }
+
+      // Use demo weather data
+      function useDemoWeatherData(city) {
+        // Simulate weather data
+        const weatherConditions = [
+          {
+            desc: "Partly sunny",
+            icon: "01-s",
+            temp: 24,
+            wind: 12,
+            humidity: 65,
+            uv: 5,
+            visibility: 16,
+          },
+          {
+            desc: "Mostly sunny",
+            icon: "02-s",
+            temp: 26,
+            wind: 10,
+            humidity: 60,
+            uv: 6,
+            visibility: 18,
+          },
+          {
+            desc: "Cloudy",
+            icon: "07-s",
+            temp: 20,
+            wind: 8,
+            humidity: 75,
+            uv: 3,
+            visibility: 14,
+          },
+          {
+            desc: "Rain",
+            icon: "12-s",
+            temp: 18,
+            wind: 15,
+            humidity: 85,
+            uv: 2,
+            visibility: 8,
+          },
+          {
+            desc: "Thunderstorms",
+            icon: "15-s",
+            temp: 17,
+            wind: 20,
+            humidity: 90,
+            uv: 1,
+            visibility: 5,
+          },
+        ];
+
+        // Random condition for demo
+        const condition =
+          weatherConditions[
+            Math.floor(Math.random() * weatherConditions.length)
+          ];
+
+        // Update weather data
+        cityName.textContent = city;
+        weatherDesc.textContent = condition.desc;
+        weatherIcon.src = `https://developer.accuweather.com/sites/default/files/${condition.icon}.png`;
+        temperature.textContent = `${condition.temp}°C`;
+        windSpeed.textContent = `${condition.wind} km/h`;
+        humidity.textContent = `${condition.humidity}%`;
+        uvIndex.textContent = `${condition.uv} ${getUvIndexText(condition.uv)}`;
+        visibility.textContent = `${condition.visibility} km`;
+        weatherDate.textContent = formatDate(new Date());
+
+        // Generate forecast
+        const forecastData = [];
+        const baseDate = new Date();
+
+        for (let i = 1; i <= 5; i++) {
+          const date = new Date();
+          date.setDate(baseDate.getDate() + i);
+
+          const conditions = [
+            {
+              icon: "01-s",
+              desc: "Sunny",
+              temp: Math.floor(Math.random() * 10) + 20,
+            },
+            {
+              icon: "02-s",
+              desc: "Mostly sunny",
+              temp: Math.floor(Math.random() * 8) + 18,
+            },
+            {
+              icon: "06-s",
+              desc: "Cloudy",
+              temp: Math.floor(Math.random() * 7) + 16,
+            },
+            {
+              icon: "12-s",
+              desc: "Showers",
+              temp: Math.floor(Math.random() * 5) + 14,
+            },
+            {
+              icon: "07-s",
+              desc: "Mostly cloudy",
+              temp: Math.floor(Math.random() * 6) + 15,
+            },
+          ];
+
+          const condition =
+            conditions[Math.floor(Math.random() * conditions.length)];
+
+          forecastData.push({
+            day: date.toLocaleDateString("en-US", { weekday: "short" }),
+            icon: `https://developer.accuweather.com/sites/default/files/${condition.icon}.png`,
+            temp: condition.temp,
+            desc: condition.desc,
+          });
+        }
+
+        renderForecast(forecastData);
+      }
+
+      // Save API key
+      saveApiKey.addEventListener("click", () => {
+        const key = apiKeyInput.value.trim();
+        if (key) {
+          apiKey = key;
+          localStorage.setItem("accuWeatherApiKey", key);
+          alert("API key saved successfully!");
+        } else {
+          alert("Please enter a valid API key");
+        }
+      });
+
+      // Initialize the application
+      document.addEventListener("DOMContentLoaded", () => {
+        initQuiz();
+
+        // Set default API key if available
+        if (apiKey) {
+          apiKeyInput.value = apiKey;
+        }
+
+        // Load weather for default city
+        getWeather();
+      });
+
+      // Add event listeners
+      searchWeather.addEventListener("click", getWeather);
+      cityInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+          getWeather();
+        }
+      });
+    </script>
+  </body>
+</html>
